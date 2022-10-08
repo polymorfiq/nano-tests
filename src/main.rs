@@ -1,11 +1,10 @@
-#![cfg_attr(feature = "nice-panic", feature(panic_info_message))]
-
 #![no_std]
 #![no_main]
 #![allow(unused_mut)]
 #![allow(unused_variables)]
+#![allow(dead_code)]
+#![cfg_attr(feature = "nice-panic", feature(panic_info_message))]
 
-use core::fmt::write;
 use core::panic::PanicInfo;
 use cortex_m::asm::delay as cycle_delay;
 
@@ -56,11 +55,13 @@ fn panic(info: &PanicInfo) -> ! {
         match LOGGER.as_mut() {
             Some(logger) => {
                 if let Some(s) = info.payload().downcast_ref::<&str>() {
-                    logger.log(s);
+                    logger.print("PANIC: ");
+                    logger.println(s);
                 } else if let Some(msg) = info.message() {
-                    write(logger, *msg).unwrap();
+                    logger.print("PANIC: ");
+                    logger.fmtln(*msg).unwrap();
                 } else {
-                    logger.log("Panic occurred!");
+                    logger.println("Panic occurred!");
                 }
             },
 
@@ -78,9 +79,10 @@ fn panic(info: &PanicInfo) -> ! {
         match LOGGER.as_mut() {
             Some(logger) => {
                 if let Some(s) = info.payload().downcast_ref::<&str>() {
-                    logger.log(s);
+                    logger.print("PANIC: ");
+                    logger.print(s);
                 } else {
-                    logger.log("Panic occurred!");
+                    logger.print("Panic occurred!");
                 }
             },
 
