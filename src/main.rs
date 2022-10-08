@@ -43,7 +43,7 @@ fn main() -> ! {
         cycle_delay(5 * 1024 * 1024);
         led.toggle().unwrap();
 
-        logger.println("This is a log line\r\n");
+        logger.println("This is a log line");
         logger.fmtln(format_args!("This is a formatted line! {:?}", "abc")).unwrap();
         unsafe { FAKE.expect("THIS IS A PANIC!!!") };
     }
