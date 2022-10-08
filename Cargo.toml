@@ -1,33 +1,30 @@
 [package]
-name = "stonecast"
+name = "nano-tests"
 version = "0.1.0"
 edition = "2021"
-
-
-[dependencies]
-panic-halt = "0.2.0"
-wifi-nina = "0.1.2"
-cortex-m = "0.7"
-usbd-serial = "0.1"
-usb-device = "0.2"
-lsm6ds33 = "0.2"
-
-atsamd21g = "*"
-
-[dependencies.arduino_nano33iot]
-version = "0.7.0"
-features = ["unproven", "usb"]
-
-[dependencies.display_utils]
-version = "0.4.0"
-
-[dependencies.lexical-core]
-version = "0.8"
-default-features = false
-features = ["write-floats", "write-integers"]
-
 
 [profile.release]
 codegen-units = 1  # better optimizations
 debug = true       # symbols are nice and they don't increase the size on Flash
 lto = true         # better optimizations
+
+[features]
+nice-panic = []
+usb-logger = ["usbd-serial", "usb-device", "arduino_nano33iot/usb"]
+default = ["usb-logger", "nice-panic"]
+
+[dependencies]
+panic-halt = "0.2.0"
+cortex-m = "0.7"
+
+[dependencies.arduino_nano33iot]
+version = "0.7.0"
+features = ["unproven"]
+
+[dependencies.usbd-serial]
+version = "0.1"
+optional = true
+
+[dependencies.usb-device]
+version = "0.2"
+optional = true

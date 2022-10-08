@@ -1,40 +1,92 @@
+#![cfg_attr(feature = "nice-panic", feature(panic_info_message))]
+
 #![no_std]
 #![no_main]
+#![allow(unused_mut)]
+#![allow(unused_variables)]
 
-use panic_halt as _;
+use core::fmt::write;
+use core::panic::PanicInfo;
+use cortex_m::asm::delay as cycle_delay;
 
-mod base;
-use base::prelude::*;
-use base::{entry, Stone};
-use base::components::{digital_pins, analog_pins, usb_logger};
+use arduino_nano33iot as bsp;
+use bsp::hal;
+use hal::prelude::*;
+use hal::clock::GenericClockController;
+use hal::pac::{CorePeripherals, Peripherals};
 
-#[entry]
+#[macro_use]
+mod logger;
+
+static mut FAKE: Option<bool> = None;
+static mut LOGGER: Option<logger::Logger> = None;
+
+#[bsp::entry]
 fn main() -> ! {
-    let mut stone = Stone::take();
-    let usb_logger = usb_logger::from!(stone);
+    let mut peripherals = Peripherals::take().unwrap();
+    let mut core = CorePeripherals::take().unwrap();
+    let mut clocks = GenericClockController::with_internal_32kosc(
+        peripherals.GCLK,
+        &mut peripherals.PM,
+        &mut peripherals.SYSCTRL,
+        &mut peripherals.NVMCTRL,
+    );
+    let pins = bsp::Pins::new(peripherals.PORT);
+    let mut led: bsp::Led = pins.led_sck.into();
 
-    let mut built_in_led = indicators::built_in_led::from!(stone);
-    let mut ext_led = indicators::external_led::from!(stone, d10);
-    let mut temp_sensor = sensors::temperature::from!(stone, a0);
-    let mut msg_buf = msg_buffer::buffer_of_size!(100);
+    let mut logger = init_nano_33_iot!(core, peripherals, clocks, pins);
+    unsafe { LOGGER = Some(logger); }
 
-    // Just give some time for the serial monitor to start listening...
-    stone.delay.delay_ms(500u32);
-    msg_buffer::log_to!(usb_logger, "Initialized!!!\n");
-
+    // Flash the LED in a spin loop to demonstrate that USB is
+    // entirely interrupt driven.
     loop {
-        built_in_led.blink(&mut stone.delay).unwrap();
-        ext_led.blink(&mut stone.delay).unwrap();
+        cycle_delay(5 * 1024 * 1024);
+        led.toggle().unwrap();
 
-        let temp_val = temp_sensor.get_temperature_f(&mut stone.adc).unwrap_or(0f32);
-        if temp_val > 70.0 {
-            ext_led.set_high().unwrap();
-        } else {
-            ext_led.set_low().unwrap();
-        }
-
-        msg_buffer::log_to_fmt!(msg_buf, usb_logger, "Temperature: {} degrees fahrenheit\n", temp_val);
-
-        stone.delay.delay_ms(200u32);
+        logger.println("This is a log line\r\n");
+        logger.fmtln(format_args!("This is a formatted line! {:?}", "abc")).unwrap();
+        unsafe { FAKE.expect("THIS IS A PANIC!!!") };
     }
+}
+
+#[cfg(feature = "nice-panic")]
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    unsafe {
+        match LOGGER.as_mut() {
+            Some(logger) => {
+                if let Some(s) = info.payload().downcast_ref::<&str>() {
+                    logger.log(s);
+                } else if let Some(msg) = info.message() {
+                    write(logger, *msg).unwrap();
+                } else {
+                    logger.log("Panic occurred!");
+                }
+            },
+
+            None => ()
+        }
+    }
+
+    loop {}
+}
+
+#[cfg(not(feature = "nice-panic"))]
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    unsafe {
+        match LOGGER.as_mut() {
+            Some(logger) => {
+                if let Some(s) = info.payload().downcast_ref::<&str>() {
+                    logger.log(s);
+                } else {
+                    logger.log("Panic occurred!");
+                }
+            },
+
+            None => ()
+        }
+    }
+
+    loop {}
 }
