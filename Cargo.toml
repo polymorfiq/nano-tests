@@ -10,12 +10,14 @@ lto = true         # better optimizations
 
 [features]
 nice-panic = []
-usb-logger = ["usbd-serial", "usb-device", "arduino_nano33iot/usb"]
+usb-io = ["usbd-serial", "usb-device", "arduino_nano33iot/usb"]
+usb-logger = ["usb-io"]
 default = ["usb-logger", "nice-panic"]
 
 [dependencies]
 panic-halt = "0.2.0"
 cortex-m = "0.7"
+modular-bitfield = "0.11.2"
 
 [dependencies.arduino_nano33iot]
 version = "0.7.0"

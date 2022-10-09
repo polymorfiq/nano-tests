@@ -10,6 +10,8 @@ mod noop;
 pub mod usb;
 
 impl Logger {
+    pub const fn new() -> Self { Self {} }
+    
     pub fn print(&mut self, message: &str) {
         self.log_bytes(message.as_bytes());
     }
@@ -36,3 +38,5 @@ impl core::fmt::Write for Logger {
         Ok(())
     }
 }
+
+pub static mut LOGGER: Logger = Logger::new();

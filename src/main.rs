@@ -1,11 +1,7 @@
 #![no_std]
 #![no_main]
-#![allow(unused_mut)]
-#![allow(unused_variables)]
-#![allow(dead_code)]
 #![cfg_attr(feature = "nice-panic", feature(panic_info_message))]
 
-use core::panic::PanicInfo;
 use cortex_m::asm::delay as cycle_delay;
 
 use arduino_nano33iot as bsp;
@@ -15,10 +11,15 @@ use hal::clock::GenericClockController;
 use hal::pac::{CorePeripherals, Peripherals};
 
 #[macro_use]
-mod logger;
+mod io;
+use io::event::{EventType, EventQueue, events};
+use events::LogEvent;
 
-static mut FAKE: Option<bool> = None;
-static mut LOGGER: Option<logger::Logger> = None;
+#[macro_use]
+mod logger;
+use logger::Logger;
+
+mod panic;
 
 #[bsp::entry]
 fn main() -> ! {
@@ -33,62 +34,28 @@ fn main() -> ! {
     let pins = bsp::Pins::new(peripherals.PORT);
     let mut led: bsp::Led = pins.led_sck.into();
 
-    let mut logger = init_nano_33_iot!(core, peripherals, clocks, pins);
-    unsafe { LOGGER = Some(logger); }
+    let logger = initialize_logger!(core, peripherals, clocks, pins);
+    let event_queue = init_event_queue!();
 
-    // Flash the LED in a spin loop to demonstrate that USB is
-    // entirely interrupt driven.
     loop {
+        parse_event_queue(logger, event_queue);
+
         cycle_delay(5 * 1024 * 1024);
         led.toggle().unwrap();
-
-        logger.println("This is a log line");
-        logger.fmtln(format_args!("This is a formatted line! {:?}", "abc")).unwrap();
-        unsafe { FAKE.expect("THIS IS A PANIC!!!") };
     }
 }
 
-#[cfg(feature = "nice-panic")]
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    unsafe {
-        match LOGGER.as_mut() {
-            Some(logger) => {
-                if let Some(s) = info.payload().downcast_ref::<&str>() {
-                    logger.print("PANIC: ");
-                    logger.println(s);
-                } else if let Some(msg) = info.message() {
-                    logger.print("PANIC: ");
-                    logger.fmtln(*msg).unwrap();
-                } else {
-                    logger.println("Panic occurred!");
-                }
-            },
+fn parse_event_queue<'a, const SIZE: usize>(logger: &mut Logger, queue: &mut EventQueue<'a, SIZE>) {
+    for event in queue {
+        match event.event_type() {
+            EventType::Log => {
+                let event: &LogEvent = event.as_any().downcast_ref::<LogEvent>().expect("Could not parse LogEvent");
+                let str_data = core::str::from_utf8(&event.message[0..event.size]).expect("Could not convert log event message to string");
 
-            None => ()
+                logger.fmtln(format_args!("Received LOG event of size {:?}... {:?}", event.size, str_data)).unwrap();
+            }
+
+            EventType::None => ()
         }
     }
-
-    loop {}
-}
-
-#[cfg(not(feature = "nice-panic"))]
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    unsafe {
-        match LOGGER.as_mut() {
-            Some(logger) => {
-                if let Some(s) = info.payload().downcast_ref::<&str>() {
-                    logger.print("PANIC: ");
-                    logger.print(s);
-                } else {
-                    logger.print("Panic occurred!");
-                }
-            },
-
-            None => ()
-        }
-    }
-
-    loop {}
 }
