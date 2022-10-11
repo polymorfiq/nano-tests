@@ -5,5 +5,6 @@ macro_rules! init_nano_33_iot {
 }
 
 impl super::Logger {
-    pub fn log_bytes(&mut self, message: &[u8]) {}
+    pub fn log_message_fragment(&mut self, message: &[u8]) {}
+    pub fn log_message_fragments(&mut self, message: &[u8]) {}
 }

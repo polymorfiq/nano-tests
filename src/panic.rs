@@ -5,11 +5,9 @@ use crate::logger::LOGGER;
 fn panic(info: &core::panic::PanicInfo) -> ! {
     unsafe {
         if let Some(s) = info.payload().downcast_ref::<&str>() {
-            LOGGER.print("PANIC: ");
-            LOGGER.println(s);
+            LOGGER.printf(format_args!("PANIC: {}\n", *s)).unwrap();
         } else if let Some(msg) = info.message() {
-            LOGGER.print("PANIC: ");
-            LOGGER.fmtln(*msg).unwrap();
+            LOGGER.printf(format_args!("PANIC: {}\n", *msg)).unwrap();
         } else {
             LOGGER.println("Panic occurred!");
         }
@@ -23,8 +21,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 fn panic(info: &core::panic::PanicInfo) -> ! {
     unsafe {
         if let Some(s) = info.payload().downcast_ref::<&str>() {
-            LOGGER.print("PANIC: ");
-            LOGGER.print(s);
+            LOGGER.printf(format_args!("PANIC: {}\n", *s)).unwrap();
         } else {
             LOGGER.print("Panic occurred!");
         }

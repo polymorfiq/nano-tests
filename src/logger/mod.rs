@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #[derive(Clone, Copy)]
 pub struct Logger {}
 
@@ -11,30 +12,40 @@ pub mod usb;
 
 impl Logger {
     pub const fn new() -> Self { Self {} }
-    
+    pub fn do_write(message: &str) {
+        unsafe {
+            LOGGER.log_message_fragments(&[message.as_bytes()]);
+        }
+    }
+
+    pub fn debug_fmt(args: core::fmt::Arguments) {
+        unsafe {
+            core::fmt::write(&mut LOGGER, format_args!("Debug: {}\n", args)).unwrap();
+        }
+    }
+
+    pub fn warning_fmt(args: core::fmt::Arguments) {
+        unsafe {
+            core::fmt::write(&mut LOGGER, format_args!("Warning: {}\n", args)).unwrap();
+        }
+    }
+
     pub fn print(&mut self, message: &str) {
-        self.log_bytes(message.as_bytes());
+        self.log_message_fragments(&[message.as_bytes()]);
     }
 
     pub fn println(&mut self, message: &str) {
-        self.log_bytes(message.as_bytes());
-        self.log_bytes("\n".as_bytes());
+        self.log_message_fragments(&[message.as_bytes(), "\n".as_bytes()]);
     }
 
-    pub fn fmt(&mut self, args: core::fmt::Arguments) -> core::fmt::Result {
+    pub fn printf(&mut self, args: core::fmt::Arguments) -> core::fmt::Result {
         core::fmt::write(self, args)
-    }
-
-    pub fn fmtln(&mut self, args: core::fmt::Arguments) -> core::fmt::Result {
-        let resp = core::fmt::write(self, args);
-        if resp.is_ok() { self.log_bytes("\n".as_bytes()); }
-        resp
     }
 }
 
 impl core::fmt::Write for Logger {
     fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
-        self.print(s);
+        self.log_message_fragment(s.as_bytes());
         Ok(())
     }
 }
